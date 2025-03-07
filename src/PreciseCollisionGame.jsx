@@ -10,7 +10,6 @@ const PreciseCollisionGame = () => {
   const [score, setScore] = useState({ safe: 0, malicious: 0, missed: 0 });
   const [logoPosition, setLogoPosition] = useState('up');
   const [packages, setPackages] = useState([]);
-  const [gameActive, setGameActive] = useState(true);
   const [inspecting, setInspecting] = useState(false);
   const [currentInspection, setCurrentInspection] = useState(null);
   const [debugMode, setDebugMode] = useState(false);
@@ -36,7 +35,7 @@ const PreciseCollisionGame = () => {
   
   // Logo click handler
   const handleLogoClick = () => {
-    if (gameActive && !autoPilot) {
+    if (!autoPilot) {
       setLogoPosition('down');
       setTimeout(() => setLogoPosition('up'), 200);
     }
@@ -90,7 +89,6 @@ const PreciseCollisionGame = () => {
   
   // Use the game loop hook
   useGameLoop({
-    gameActive,
     inspecting,
     autoPilot,
     logoPosition,
