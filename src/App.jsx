@@ -21,14 +21,15 @@ const useGameLoop = ({
   const lastTimeRef = useRef(0);
   const nextPackageTimeRef = useRef(0);
 
-  // Keep a ref of the latest packages array to avoid re-creating the loop function
+  // Maintain a ref for packages to always have the latest value without causing gameLoop to re-create
   const packagesRef = useRef(packages);
   useEffect(() => {
     packagesRef.current = packages;
   }, [packages]);
 
   useEffect(() => {
-    const gameLoop = (timestamp) => {
+    // Define the gameLoop as a named function to ensure the reference remains stable
+    function gameLoop(timestamp) {
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const deltaTime = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
@@ -83,14 +84,14 @@ const useGameLoop = ({
         );
       }
 
-      // Request the next frame using the gameLoop defined above
+      // Request the next animation frame using the same gameLoop reference
       animationRef.current = requestAnimationFrame(gameLoop);
-    };
+    }
 
-    // Start the loop
+    // Start the game loop
     animationRef.current = requestAnimationFrame(gameLoop);
 
-    // Cleanup on unmount
+    // Cleanup: cancel the animation frame on unmount
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
@@ -106,7 +107,7 @@ const useGameLoop = ({
     setInspecting,
     setCurrentInspection,
     setLogoPosition,
-    logoHitscanRef,
+    logoHitscanRef
   ]);
 
   return null;
