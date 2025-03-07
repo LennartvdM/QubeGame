@@ -1,143 +1,108 @@
-import React, { useState, useEffect, useRef } from 'react';
-import GameArea from './components/GameArea';
-import Scoreboard from './components/Scoreboard';
-import ControlButtons from './components/ControlButtons';
-import useGameLoop from './hooks/useGameLoop';
-import './styles/animations.css';
+import { useEffect, useRef } from 'react';
 
-const PreciseCollisionGame = () => {
-  // State initialization
-  const [score, setScore] = useState({ safe: 0, malicious: 0, missed: 0 });
-  const [logoPosition, setLogoPosition] = useState('up');
-  const [packages, setPackages] = useState([]);
-  const [inspecting, setInspecting] = useState(false);
-  const [currentInspection, setCurrentInspection] = useState(null);
-  const [debugMode, setDebugMode] = useState(false);
-  const [autoPilot, setAutoPilot] = useState(false);
-  const [conveyorSpeed, setConveyorSpeed] = useState(120);
-  
-  // Refs
-  const gameAreaRef = useRef(null);
-  const logoWidthRef = useRef(80);
-  const logoHitscanRef = useRef(null);
-  const packageWidthRef = useRef(48);
-  
-  // Toggle handlers
-  const toggleDebugMode = () => setDebugMode((d) => !d);
-  const toggleAutoPilot = () => {
-    setAutoPilot((a) => {
-      if (!a) {
-        setScore((prev) => ({...prev, missed: 0}));
-      }
-      return !a; 
-    });
-  };
-  
-  // Logo click handler
-  const handleLogoClick = () => {
-    if (!autoPilot) {
-      setLogoPosition('down');
-      setTimeout(() => setLogoPosition('up'), 200);
-    }
-  };
-  
-  // Update hitscan on resize
+const useGameLoop = ({
+  gameActive,
+  inspecting,
+  autoPilot,
+  logoPosition,
+  packages,
+  conveyorSpeed,
+  setPackages,
+  setScore,
+  setInspecting,
+  setCurrentInspection,
+  setLogoPosition,
+  gameAreaRef,
+  logoHitscanRef,
+  packageWidthRef
+}) => {
+  // Refs for animation and timing
+  const animationRef = useRef(null);
+  const lastTimeRef = useRef(0);
+  const burstModeRef = useRef(false);
+  const nextPackageTimeRef = useRef(0);
+  const packageSpeedRef = useRef(120);
+
+  // Main game loop
   useEffect(() => {
-    const updateLogoHitscan = () => {
-      if (gameAreaRef.current) {
-        const rect = gameAreaRef.current.getBoundingClientRect();
-        logoHitscanRef.current = rect.width / 2;
+    const gameLoop = (timestamp) => {
+      if (!lastTimeRef.current) lastTimeRef.current = timestamp;
+      const deltaTime = timestamp - lastTimeRef.current;
+      lastTimeRef.current = timestamp;
+
+      // Spawn packages
+      if (timestamp >= nextPackageTimeRef.current && gameActive) {
+        const lastPackage = packages[packages.length - 1];
+        const minDist = packageWidthRef.current + 5;
+        const canSpawn = !lastPackage || lastPackage.x > minDist;
+        if (canSpawn) {
+          const isMalicious = Math.random() < 0.4;
+          const newPackage = {
+            id: Date.now(),
+            x: -60,
+            y: 290,
+            width: packageWidthRef.current,
+            isMalicious,
+            type: isMalicious ? 'malicious' : 'safe',
+            status: 'unprocessed',
+            centerPoint: {
+              x: -60 + packageWidthRef.current / 2,
+              width: 4,
+            },
+            velocity: 0,
+            creationTime: Date.now(),
+          };
+          setPackages((p) => [...p, newPackage]);
+
+          let nextInterval = Math.random() * 1500 + 300;
+          nextPackageTimeRef.current = timestamp + nextInterval;
+        } else {
+          nextPackageTimeRef.current = timestamp + 50;
+        }
       }
-    };
-    updateLogoHitscan();
-    window.addEventListener('resize', updateLogoHitscan);
-    return () => window.removeEventListener('resize', updateLogoHitscan);
-  }, []);
-  
-  // Setup speed transition
-  useEffect(() => {
-    let animationId;
-    let startTime;
 
-    const animate = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-
-      const targetSpeed = inspecting && !autoPilot ? 0 : 120;
-      const duration = inspecting && !autoPilot ? 50 : 250;
-
-      const progress = Math.min(elapsed / duration, 1);
-      const eased =
-        progress < 0.5
-          ? 4 * progress * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-      const startSpeed = inspecting && !autoPilot ? 120 : 0;
-      const newSpeed = startSpeed + (targetSpeed - startSpeed) * eased;
-
-      setConveyorSpeed(newSpeed);
-      if (progress < 1) {
-        animationId = requestAnimationFrame(animate);
+      // Move packages
+      if (!inspecting || autoPilot) {
+        setPackages((prev) => {
+          return prev.map((pkg) => {
+            const speed = conveyorSpeed;
+            const newX = pkg.x + (speed * deltaTime) / 1000;
+            const newCenterPoint = {
+              ...pkg.centerPoint,
+              x: newX + pkg.width / 2,
+            };
+            return {
+              ...pkg,
+              x: newX,
+              centerPoint: newCenterPoint,
+            };
+          }).filter(pkg => pkg.x < window.innerWidth + 100);
+        });
       }
+
+      animationRef.current = requestAnimationFrame(gameLoop);
     };
 
-    animationId = requestAnimationFrame(animate);
+    animationRef.current = requestAnimationFrame(gameLoop);
     return () => {
-      if (animationId) cancelAnimationFrame(animationId);
+      if (animationRef.current) cancelAnimationFrame(gameLoop);
     };
-  }, [inspecting, autoPilot]);
-  
-  // Use the game loop hook
-  useGameLoop({
-    inspecting,
-    autoPilot,
-    logoPosition,
-    packages,
-    conveyorSpeed,
-    setPackages,
-    setScore,
-    setInspecting,
-    setCurrentInspection,
+  }, [
+    gameActive, 
+    inspecting, 
+    logoPosition, 
+    packages, 
+    autoPilot, 
+    conveyorSpeed, 
+    setPackages, 
+    setScore, 
+    setInspecting, 
+    setCurrentInspection, 
     setLogoPosition,
-    gameAreaRef,
-    logoHitscanRef,
-    packageWidthRef
-  });
+    logoHitscanRef
+  ]);
 
-  return (
-    <div className="flex justify-center items-center w-full bg-gray-50">
-      <div
-        className="relative w-full max-w-4xl mx-auto bg-gray-50 overflow-hidden"
-        style={{ height: '500px' }}
-      >
-        <ControlButtons 
-          debugMode={debugMode}
-          autoPilot={autoPilot}
-          toggleDebugMode={toggleDebugMode}
-          toggleAutoPilot={toggleAutoPilot}
-          conveyorSpeed={conveyorSpeed}
-        />
-        
-        <Scoreboard 
-          score={score}
-          autoPilot={autoPilot}
-        />
-        
-        <GameArea 
-          gameAreaRef={gameAreaRef}
-          logoHitscanRef={logoHitscanRef}
-          debugMode={debugMode}
-          packages={packages}
-          inspecting={inspecting}
-          logoPosition={logoPosition}
-          handleLogoClick={handleLogoClick}
-          currentInspection={currentInspection}
-          autoPilot={autoPilot}
-          logoWidthRef={logoWidthRef}
-        />
-      </div>
-    </div>
-  );
+  return null;
 };
 
-export default PreciseCollisionGame;
+export default useGameLoop;
