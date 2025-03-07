@@ -5,7 +5,6 @@ const Package = ({ pkg, debugMode }) => {
   let packageStyle = '';
   let packageText = '';
   let textColor = '';
-  let showQuestionMark = false;
 
   switch (pkg.status) {
     case 'safe':
@@ -24,22 +23,15 @@ const Package = ({ pkg, debugMode }) => {
       textColor = 'text-yellow-500';
       break;
     case 'inspecting':
-      if (pkg.type === 'malicious') {
-        packageStyle = 'bg-red-200 border border-red-400';
-        packageText = '';  // Empty text during inspection
-        textColor = 'text-red-400';
-      } else {
-        packageStyle = 'bg-green-200 border border-green-400';
-        packageText = '';  // Empty text during inspection
-        textColor = 'text-green-400';
-      }
+      packageStyle = pkg.type === 'malicious' ? 'bg-red-200 border border-red-400' : 'bg-green-200 border border-green-400';
+      packageText = ''; // Empty text during inspection
+      textColor = pkg.type === 'malicious' ? 'text-red-400' : 'text-green-400';
       break;
     case 'unprocessed':
     default:
       packageStyle = 'bg-purple-100 border border-purple-300';
-      packageText = pkg.hideQuestionMark ? '' : '?';  // Hide question mark if flagged
+      packageText = pkg.hideQuestionMark ? '' : '?';
       textColor = 'text-purple-800';
-      showQuestionMark = !pkg.hideQuestionMark;  // Controls visibility of question mark
   }
 
   // Add twitching animation for unprocessed and missed packages
@@ -60,14 +52,12 @@ const Package = ({ pkg, debugMode }) => {
   
   // Determine styles based on status
   const getPackageStyles = () => {
-    // Default style
     const styles = {
       left: `${pkg.x}px`,
       width: `${pkg.width}px`,
       '--random-delay': pkg.randomDelay || 0,
     };
     
-    // Status specific styles
     if (pkg.status === 'inspecting') {
       return {
         ...styles,
@@ -82,21 +72,16 @@ const Package = ({ pkg, debugMode }) => {
       };
     } else if (pkg.status === 'threat') {
       const now = Date.now();
-      const elapsed = (now - pkg.inspectionTime) / 1000; // seconds
-      
+      const elapsed = (now - pkg.inspectionTime) / 1000;
       if (elapsed < 0.15) {
-        // During initial duck phase
         return {
           ...styles,
           top: '320px',
           transition: 'top 0.15s linear'
         };
       }
-      // After duck, let CSS animation handle it
       return styles;
     }
-    
-    // Default for other statuses
     return {
       ...styles,
       top: '290px'
@@ -126,11 +111,8 @@ const Package = ({ pkg, debugMode }) => {
       )}
 
       <div className={`z-10 px-2 font-semibold ${textColor} relative`}>
-        {/* Status text that fades in */}
         <div className={pkg.status === 'missed' && pkg.wasUnprocessed ? 'fade-in' : ''}>{packageText}</div>
-        
-        {/* For missed packages, don't show the question mark at all - no fade out */}
-        {(pkg.status !== 'missed') && pkg.status === 'unprocessed' && !pkg.hideQuestionMark && (
+        {pkg.status !== 'missed' && pkg.status === 'unprocessed' && !pkg.hideQuestionMark && (
           <div className="absolute inset-0 flex items-center justify-center text-purple-800">
             ?
           </div>
