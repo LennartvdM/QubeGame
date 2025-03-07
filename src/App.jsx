@@ -21,7 +21,13 @@ const useGameLoop = ({
   const lastTimeRef = useRef(0);
   const nextPackageTimeRef = useRef(0);
 
-  // Define the game loop with useCallback so it remains stable between renders
+  // Maintain a ref for packages to always have the latest value without causing gameLoop to re-create
+  const packagesRef = useRef(packages);
+  useEffect(() => {
+    packagesRef.current = packages;
+  }, [packages]);
+
+  // Main game loop wrapped in useCallback for stability
   const gameLoop = useCallback((timestamp) => {
     if (!lastTimeRef.current) lastTimeRef.current = timestamp;
     const deltaTime = timestamp - lastTimeRef.current;
@@ -29,7 +35,7 @@ const useGameLoop = ({
 
     // Spawn packages if it's time and the game is active
     if (timestamp >= nextPackageTimeRef.current && gameActive) {
-      const lastPackage = packages[packages.length - 1];
+      const lastPackage = packagesRef.current[packagesRef.current.length - 1];
       const minDist = packageWidthRef.current + 5;
       const canSpawn = !lastPackage || lastPackage.x > minDist;
       if (canSpawn) {
@@ -77,15 +83,31 @@ const useGameLoop = ({
       );
     }
 
+    // Request the next frame using the same stable gameLoop reference
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [gameActive, packages, conveyorSpeed, inspecting, autoPilot, setPackages, packageWidthRef]);
+  }, [
+    gameActive,
+    conveyorSpeed,
+    inspecting,
+    autoPilot,
+    setPackages,
+    packageWidthRef
+  ]);
 
   useEffect(() => {
     animationRef.current = requestAnimationFrame(gameLoop);
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [gameLoop, logoPosition, setScore, setInspecting, setCurrentInspection, setLogoPosition, logoHitscanRef]);
+  }, [
+    gameLoop,
+    logoPosition,
+    setScore,
+    setInspecting,
+    setCurrentInspection,
+    setLogoPosition,
+    logoHitscanRef
+  ]);
 
   return null;
 };
