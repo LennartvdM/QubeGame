@@ -39,4 +39,32 @@ const GameArea = ({
     return (
       <>
         <div
-          className="absolute h-full w-0.5 bg-red-500 opacity-50 z-10
+          className="absolute h-full w-0.5 bg-red-500 opacity-50 z-10"
+          style={{
+            left: `${inspectionPoint}px`,
+          }}
+        ></div>
+      </>
+    );
+  };
+
+  return (
+    <div ref={gameAreaRef} className="relative w-full h-screen overflow-hidden bg-gray-800">
+      {renderInspectionBeam()}
+      {renderCollisionDebug()}
+
+      {packages.map((pkg, index) => (
+        <Package key={index} {...pkg} />
+      ))}
+
+      <Logo
+        position={logoPosition}
+        onClick={handleLogoClick}
+        ref={logoWidthRef}
+        autoPilot={autoPilot}
+      />
+    </div>
+  );
+};
+
+export default GameArea;
