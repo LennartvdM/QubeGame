@@ -19,9 +19,7 @@ const useGameLoop = ({
   // Refs for animation and timing
   const animationRef = useRef(null);
   const lastTimeRef = useRef(0);
-  const burstModeRef = useRef(false);
   const nextPackageTimeRef = useRef(0);
-  const packageSpeedRef = useRef(120);
 
   // Main game loop
   useEffect(() => {
@@ -64,19 +62,21 @@ const useGameLoop = ({
       // Move packages
       if (!inspecting || autoPilot) {
         setPackages((prev) => {
-          return prev.map((pkg) => {
-            const speed = conveyorSpeed;
-            const newX = pkg.x + (speed * deltaTime) / 1000;
-            const newCenterPoint = {
-              ...pkg.centerPoint,
-              x: newX + pkg.width / 2,
-            };
-            return {
-              ...pkg,
-              x: newX,
-              centerPoint: newCenterPoint,
-            };
-          }).filter(pkg => pkg.x < window.innerWidth + 100);
+          return prev
+            .map((pkg) => {
+              const speed = conveyorSpeed;
+              const newX = pkg.x + (speed * deltaTime) / 1000;
+              const newCenterPoint = {
+                ...pkg.centerPoint,
+                x: newX + pkg.width / 2,
+              };
+              return {
+                ...pkg,
+                x: newX,
+                centerPoint: newCenterPoint,
+              };
+            })
+            .filter((pkg) => pkg.x < window.innerWidth + 100);
         });
       }
 
@@ -85,21 +85,22 @@ const useGameLoop = ({
 
     animationRef.current = requestAnimationFrame(gameLoop);
     return () => {
-      if (animationRef.current) cancelAnimationFrame(gameLoop);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [
-    gameActive, 
-    inspecting, 
-    logoPosition, 
-    packages, 
-    autoPilot, 
-    conveyorSpeed, 
-    setPackages, 
-    setScore, 
-    setInspecting, 
-    setCurrentInspection, 
+    gameActive,
+    inspecting,
+    logoPosition,
+    packages,
+    autoPilot,
+    conveyorSpeed,
+    setPackages,
+    setScore,
+    setInspecting,
+    setCurrentInspection,
     setLogoPosition,
-    logoHitscanRef
+    logoHitscanRef,
+    packageWidthRef
   ]);
 
   return null;
