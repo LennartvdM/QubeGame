@@ -124,6 +124,13 @@
 .gesture-wrapper {
   display: inline-flex;
   will-change: transform;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.gesture-wrapper * {
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 @keyframes slamImpact {

@@ -20,6 +20,16 @@ const Logo = ({
     }
   };
 
+  const engageTouchHover = () => {
+    if (!isTouchEnvironment()) return;
+    handleLogoHover(true);
+  };
+
+  const releaseTouchHover = () => {
+    if (!isTouchEnvironment()) return;
+    handleLogoHover(false);
+  };
+
   const handleWiggleEnd = (e) => {
     if (e.animationName === 'wiggleInner') {
       setWiggleActive(false);
@@ -126,6 +136,8 @@ const Logo = ({
       startTime: event.timeStamp,
     };
 
+    engageTouchHover();
+
     if (event.currentTarget?.setPointerCapture) {
       event.currentTarget.setPointerCapture(event.pointerId);
     }
@@ -133,17 +145,30 @@ const Logo = ({
 
   const handlePointerMove = (event) => {
     if (!pointerDataRef.current || pointerDataRef.current.pointerId !== event.pointerId) return;
+    if (event.cancelable) {
+      event.preventDefault();
+    }
     pointerDataRef.current.lastY = event.clientY;
   };
 
   const handlePointerUp = (event) => {
-    if (!pointerDataRef.current || pointerDataRef.current.pointerId !== event.pointerId) return;
+    const pointerData = pointerDataRef.current;
+    if (!pointerData || pointerData.pointerId !== event.pointerId) {
+      releaseTouchHover();
+      return;
+    }
     evaluateGesture(event, false);
+    releaseTouchHover();
   };
 
   const handlePointerCancel = (event) => {
-    if (!pointerDataRef.current || pointerDataRef.current.pointerId !== event.pointerId) return;
+    const pointerData = pointerDataRef.current;
+    if (!pointerData || pointerData.pointerId !== event.pointerId) {
+      releaseTouchHover();
+      return;
+    }
     evaluateGesture(event, true);
+    releaseTouchHover();
   };
 
   const handleTap = (event) => {
@@ -181,6 +206,10 @@ const Logo = ({
         pointerEvents: 'auto',
         cursor: 'pointer',
         touchAction: 'none',
+        overscrollBehavior: 'contain',
+        overscrollBehaviorY: 'contain',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
       }}
       onClick={handleTap}
       onMouseEnter={() => handleLogoHover(true)}
@@ -208,7 +237,11 @@ const Logo = ({
         >
           <div
             className={gestureWrapperClasses.join(' ')}
-            style={{ '--gesture-strength': gestureEffect?.strength || 0 }}
+            style={{
+              '--gesture-strength': gestureEffect?.strength || 0,
+              touchAction: 'none',
+              overscrollBehavior: 'contain',
+            }}
             onAnimationEnd={handleGestureAnimationEnd}
           >
             <div
