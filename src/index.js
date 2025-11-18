@@ -1,22 +1,10 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom';
 import PreciseCollisionGame from './App';
 
-const container = document.getElementById('root');
-
-if (!container) {
-  throw new Error('QubeGame root container not found');
-}
-
-const root = createRoot(container);
-
-if (process.env.NODE_ENV !== 'production') {
-  // eslint-disable-next-line no-console
-  console.info('QubeGame bootstrap running', process.env.NODE_ENV);
-}
-
-root.render(
+ReactDOM.render(
   <React.StrictMode>
     <PreciseCollisionGame />
-  </React.StrictMode>
+  </React.StrictMode>,
+  document.getElementById('root')
 );
