@@ -2,17 +2,17 @@ import React from 'react';
 import Package from './Package';
 import Logo from './Logo';
 
-const GameArea = ({ 
-  gameAreaRef, 
-  logoHitscanRef, 
-  debugMode, 
-  packages, 
-  inspecting, 
-  logoPosition, 
+const GameArea = ({
+  gameAreaRef,
+  logoHitscanRef,
+  debugMode,
+  packages,
+  inspecting,
+  logoPosition,
   handleLogoClick,
   currentInspection,
   autoPilot,
-  logoWidthRef
+  logoWidthRef,
 }) => {
   
   const renderInspectionBeam = () => {
@@ -53,14 +53,14 @@ const GameArea = ({
       {renderInspectionBeam()}
       {renderCollisionDebug()}
 
-      {packages.map((pkg, index) => (
-        <Package key={index} {...pkg} />
+      {packages.map((pkg) => (
+        <Package key={pkg.id} pkg={pkg} debugMode={debugMode} />
       ))}
 
       <Logo
         position={logoPosition}
         onClick={handleLogoClick}
-        ref={logoWidthRef}
+        logoWidthRef={logoWidthRef}
         autoPilot={autoPilot}
       />
     </div>
