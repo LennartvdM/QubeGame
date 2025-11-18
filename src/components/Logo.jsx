@@ -1,4 +1,20 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+
+const detectTouchEnvironment = () => {
+  if (typeof window === 'undefined') return false;
+  if ('matchMedia' in window && window.matchMedia('(pointer: coarse)').matches) {
+    return true;
+  }
+  if (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) {
+    return true;
+  }
+  return 'ontouchstart' in window;
+};
+
+const detectPointerEventsSupport = () => {
+  if (typeof window === 'undefined') return false;
+  return 'PointerEvent' in window;
+};
 
 const Logo = ({
   position,
@@ -13,6 +29,10 @@ const Logo = ({
   const pointerDataRef = useRef(null);
   const suppressClickRef = useRef(false);
 
+  const isTouchDevice = useMemo(() => detectTouchEnvironment(), []);
+  const pointerEventsSupported = useMemo(() => detectPointerEventsSupport(), []);
+  const useTouchFallback = isTouchDevice && !pointerEventsSupported;
+
   const handleLogoHover = (hovering) => {
     setIsHovered(hovering);
     if (hovering) {
@@ -21,12 +41,12 @@ const Logo = ({
   };
 
   const engageTouchHover = () => {
-    if (!isTouchEnvironment()) return;
+    if (!isTouchDevice) return;
     handleLogoHover(true);
   };
 
   const releaseTouchHover = () => {
-    if (!isTouchEnvironment()) return;
+    if (!isTouchDevice) return;
     handleLogoHover(false);
   };
 
@@ -42,25 +62,19 @@ const Logo = ({
     }
   };
 
-  const isTouchEnvironment = () => {
-    if (typeof window === 'undefined') return false;
-    if ('matchMedia' in window && window.matchMedia('(pointer: coarse)').matches) {
-      return true;
-    }
-    if ('navigator' in window && navigator?.maxTouchPoints > 0) {
-      return true;
-    }
-    return 'ontouchstart' in window;
-  };
-
   const shouldHandlePointer = (event) => {
-    if (!isTouchEnvironment()) return false;
+    if (!isTouchDevice) return false;
     if (!event.pointerType) return true;
     return event.pointerType === 'touch' || event.pointerType === 'pen';
   };
 
   const resetPointerData = () => {
     pointerDataRef.current = null;
+  };
+
+  const findTouchById = (touchList, identifier) => {
+    if (!touchList) return null;
+    return Array.from(touchList).find((touch) => touch.identifier === identifier) || null;
   };
 
   const triggerGesture = (event, direction, meta) => {
@@ -102,6 +116,10 @@ const Logo = ({
     const tapSlop = 10;
 
     if (absDeltaY <= tapSlop) {
+      if (pointerData.source === 'touch' && pointerData.defaultPrevented) {
+        suppressClickRef.current = true;
+        onClick?.(event);
+      }
       resetPointerData();
       return;
     }
@@ -134,6 +152,8 @@ const Logo = ({
       startY: event.clientY,
       lastY: event.clientY,
       startTime: event.timeStamp,
+      defaultPrevented: false,
+      source: 'pointer',
     };
 
     engageTouchHover();
@@ -147,6 +167,7 @@ const Logo = ({
     if (!pointerDataRef.current || pointerDataRef.current.pointerId !== event.pointerId) return;
     if (event.cancelable) {
       event.preventDefault();
+      pointerDataRef.current.defaultPrevented = true;
     }
     pointerDataRef.current.lastY = event.clientY;
   };
@@ -157,6 +178,7 @@ const Logo = ({
       releaseTouchHover();
       return;
     }
+    pointerDataRef.current.lastY = event.clientY;
     evaluateGesture(event, false);
     releaseTouchHover();
   };
@@ -166,6 +188,67 @@ const Logo = ({
     if (!pointerData || pointerData.pointerId !== event.pointerId) {
       releaseTouchHover();
       return;
+    }
+    pointerDataRef.current.lastY = event.clientY;
+    evaluateGesture(event, true);
+    releaseTouchHover();
+  };
+
+  const handleTouchStart = (event) => {
+    if (!useTouchFallback) return;
+    if (pointerDataRef.current) return;
+    const touch = event.changedTouches?.[0] || event.touches?.[0];
+    if (!touch) return;
+    suppressClickRef.current = false;
+    pointerDataRef.current = {
+      pointerId: touch.identifier,
+      startY: touch.clientY,
+      lastY: touch.clientY,
+      startTime: event.timeStamp,
+      defaultPrevented: false,
+      source: 'touch',
+    };
+    engageTouchHover();
+  };
+
+  const handleTouchMove = (event) => {
+    if (!useTouchFallback) return;
+    const pointerData = pointerDataRef.current;
+    if (!pointerData) return;
+    const touch = findTouchById(event.touches, pointerData.pointerId);
+    if (!touch) return;
+    if (event.cancelable) {
+      event.preventDefault();
+      pointerData.defaultPrevented = true;
+    }
+    pointerData.lastY = touch.clientY;
+  };
+
+  const handleTouchEnd = (event) => {
+    if (!useTouchFallback) return;
+    const pointerData = pointerDataRef.current;
+    if (!pointerData) {
+      releaseTouchHover();
+      return;
+    }
+    const touch = findTouchById(event.changedTouches, pointerData.pointerId);
+    if (touch) {
+      pointerData.lastY = touch.clientY;
+    }
+    evaluateGesture(event, false);
+    releaseTouchHover();
+  };
+
+  const handleTouchCancel = (event) => {
+    if (!useTouchFallback) return;
+    const pointerData = pointerDataRef.current;
+    if (!pointerData) {
+      releaseTouchHover();
+      return;
+    }
+    const touch = findTouchById(event.changedTouches, pointerData.pointerId);
+    if (touch) {
+      pointerData.lastY = touch.clientY;
     }
     evaluateGesture(event, true);
     releaseTouchHover();
@@ -190,6 +273,19 @@ const Logo = ({
     gestureWrapperClasses.push('gesture-catapult');
   }
 
+  const interactiveTouchStyles = isTouchDevice
+    ? {
+        touchAction: 'none',
+        overscrollBehavior: 'contain',
+        overscrollBehaviorY: 'contain',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+      }
+    : {
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+      };
+
   return (
     <div
       style={{
@@ -205,11 +301,7 @@ const Logo = ({
         width: widthValue,
         pointerEvents: 'auto',
         cursor: 'pointer',
-        touchAction: 'none',
-        overscrollBehavior: 'contain',
-        overscrollBehaviorY: 'contain',
-        WebkitUserSelect: 'none',
-        userSelect: 'none',
+        ...interactiveTouchStyles,
       }}
       onClick={handleTap}
       onMouseEnter={() => handleLogoHover(true)}
@@ -218,6 +310,10 @@ const Logo = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onTouchStart={useTouchFallback ? handleTouchStart : undefined}
+      onTouchMove={useTouchFallback ? handleTouchMove : undefined}
+      onTouchEnd={useTouchFallback ? handleTouchEnd : undefined}
+      onTouchCancel={useTouchFallback ? handleTouchCancel : undefined}
     >
       <div
         className={`relative flex items-center justify-center
