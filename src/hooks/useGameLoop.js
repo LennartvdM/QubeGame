@@ -4,24 +4,22 @@ const useGameLoop = ({
   gameActive,
   inspecting,
   autoPilot,
-  logoPosition,
   packages,
   conveyorSpeed,
   setPackages,
-  setScore,
-  setInspecting,
-  setCurrentInspection,
-  setLogoPosition,
-  gameAreaRef,
   logoHitscanRef,
-  packageWidthRef
+  packageWidthRef,
+  onPackageMissed,
 }) => {
   // Refs for animation and timing
   const animationRef = useRef(null);
   const lastTimeRef = useRef(0);
-  const burstModeRef = useRef(false);
   const nextPackageTimeRef = useRef(0);
-  const packageSpeedRef = useRef(120);
+  const packagesRef = useRef(packages);
+
+  useEffect(() => {
+    packagesRef.current = packages;
+  }, [packages]);
 
   // Main game loop
   useEffect(() => {
@@ -32,7 +30,8 @@ const useGameLoop = ({
 
       // Spawn packages
       if (timestamp >= nextPackageTimeRef.current && gameActive) {
-        const lastPackage = packages[packages.length - 1];
+        const currentPackages = packagesRef.current;
+        const lastPackage = currentPackages[currentPackages.length - 1];
         const minDist = packageWidthRef.current + 5;
         const canSpawn = !lastPackage || lastPackage.x > minDist;
         if (canSpawn) {
@@ -64,19 +63,42 @@ const useGameLoop = ({
       // Move packages
       if (!inspecting || autoPilot) {
         setPackages((prev) => {
-          return prev.map((pkg) => {
-            const speed = conveyorSpeed;
-            const newX = pkg.x + (speed * deltaTime) / 1000;
-            const newCenterPoint = {
-              ...pkg.centerPoint,
-              x: newX + pkg.width / 2,
-            };
-            return {
-              ...pkg,
-              x: newX,
-              centerPoint: newCenterPoint,
-            };
-          }).filter(pkg => pkg.x < window.innerWidth + 100);
+          const hitscan = logoHitscanRef.current ?? window.innerWidth / 2;
+          return prev
+            .map((pkg) => {
+              const speed = conveyorSpeed;
+              const newX = pkg.x + (speed * deltaTime) / 1000;
+              const newCenterPoint = {
+                ...pkg.centerPoint,
+                x: newX + pkg.width / 2,
+              };
+              let nextStatus = pkg.status;
+              let wasUnprocessed = pkg.wasUnprocessed;
+
+              if (
+                pkg.status === 'unprocessed' &&
+                newCenterPoint.x > hitscan + pkg.width * 0.2
+              ) {
+                if (pkg.type === 'malicious') {
+                  nextStatus = 'missed';
+                  wasUnprocessed = true;
+                  if (onPackageMissed) {
+                    onPackageMissed(pkg);
+                  }
+                } else {
+                  nextStatus = 'safe';
+                }
+              }
+
+              return {
+                ...pkg,
+                x: newX,
+                centerPoint: newCenterPoint,
+                status: nextStatus,
+                wasUnprocessed,
+              };
+            })
+            .filter((pkg) => pkg.x < window.innerWidth + 100);
         });
       }
 
@@ -88,18 +110,14 @@ const useGameLoop = ({
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [
-    gameActive, 
-    inspecting, 
-    logoPosition, 
-    packages, 
-    autoPilot, 
-    conveyorSpeed, 
-    setPackages, 
-    setScore, 
-    setInspecting, 
-    setCurrentInspection, 
-    setLogoPosition,
-    logoHitscanRef
+    gameActive,
+    inspecting,
+    autoPilot,
+    conveyorSpeed,
+    setPackages,
+    logoHitscanRef,
+    packageWidthRef,
+    onPackageMissed,
   ]);
 
   return null;
